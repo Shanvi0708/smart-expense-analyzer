@@ -613,8 +613,7 @@ if page == "DASHBOARD":
 # ════════════════════════════════════════════════════════════
 elif page == "LOG EXPENSE":
     st.markdown('<span class="sec-title">NEW ENTRY</span>', unsafe_allow_html=True)
-    st.markdown(f'<div class="insight-row">DATE : {datetime.date.today().strftime("%d %B %Y")}  (auto)</div>', unsafe_allow_html=True)
-
+    selected_date = st.date_input("DATE", value=datetime.date.today(), max_value=datetime.date.today())
     col1, col2 = st.columns(2)
     with col1:
         category = st.selectbox("CATEGORY", CATEGORIES)
@@ -626,7 +625,7 @@ elif page == "LOG EXPENSE":
 
     if st.button("[ SAVE EXPENSE ]"):
         today_date = datetime.date.today()
-        save_expense({"date": today_date.isoformat(),
+        save_expense({"date": selected_date.isoformat(),
                       "category": category, "amount": amount, "mood": mood})
         budget = load_budget(today_date.year, today_date.month)
         me2    = month_exp(); spent2 = total(me2)
