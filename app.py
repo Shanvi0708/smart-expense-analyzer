@@ -13,16 +13,31 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Force sidebar always open — hide collapse arrow button
 st.markdown("""
 <style>
-[data-testid="collapsedControl"] { display: none !important; }
-button[kind="header"] { display: none !important; }
-.st-emotion-cache-dvne4q { display: none !important; }
-[aria-label="Close sidebar"] { display: none !important; }
-[aria-label="Collapse sidebar"] { display: none !important; }
-svg[data-testid="stIconMaterial"] { display: none !important; }
-section[data-testid="stSidebar"] { min-width: 260px !important; max-width: 280px !important; transform: none !important; }
+/* ── RESTORE sidebar toggle button ── */
+[data-testid="collapsedControl"] { display: flex !important; }
+button[kind="header"] { display: flex !important; }
+
+/* ── MOBILE RESPONSIVE ── */
+@media (max-width: 768px) {
+    .block-container { padding: 0.5rem 0.8rem !important; }
+    .pixel-header h1 { font-size: 11px !important; line-height: 1.8 !important; }
+    .pixel-header p  { font-size: 16px !important; }
+    .metric-pixel .value { font-size: 12px !important; }
+    .metric-pixel .label { font-size: 6px !important; }
+    .sec-title { font-size: 8px !important; }
+    .insight-row { font-size: 16px !important; padding: 8px 10px !important; }
+    .pixel-warn, .pixel-danger, .pixel-success { font-size: 7px !important; padding: 8px !important; }
+    .stButton > button { font-size: 7px !important; padding: 8px 12px !important; }
+}
+
+@media (max-width: 480px) {
+    .pixel-header h1 { font-size: 9px !important; }
+    .metric-pixel .value { font-size: 10px !important; }
+}
+
+section[data-testid="stSidebar"] { min-width: 240px !important; max-width: 270px !important; }
 section[data-testid="stSidebar"] > div:first-child { padding-top: 1rem !important; }
 </style>
 """, unsafe_allow_html=True)
@@ -50,28 +65,33 @@ html, body, [class*="css"] {
 }
 
 #MainMenu, footer, header { visibility: hidden; }
-.block-container { padding: 1.5rem 2rem; }
+.block-container { padding: 1rem 1.5rem; }
 
-[data-testid="stSidebar"] {
-    background-color: #ffc8dd !important;
-    border-right: 4px solid #c9184a !important;
-}
-[data-testid="stSidebar"] * {
-    color: #590d22 !important;
+/* ── NAV BUTTONS ── */
+.stButton > button {
     font-family: 'Press Start 2P', monospace !important;
-    font-size: 9px !important;
-    line-height: 2 !important;
+    font-size: 7px !important;
+    background: #ff8fab !important;
+    color: #590d22 !important;
+    border: 3px solid #c9184a !important;
+    border-radius: 0px !important;
+    padding: 8px 4px !important;
+    box-shadow: 2px 2px 0px #c9184a !important;
+    transition: all 0.1s !important;
+    width: 100% !important;
 }
-[data-testid="stSidebar"] .stRadio label {
-    display: block;
-    padding: 6px 8px;
-    border: 2px solid #c9184a;
-    margin: 4px 0;
-    background: #fff0f3;
-    cursor: pointer;
+.stButton > button:hover {
+    transform: translate(1px, 1px) !important;
+    box-shadow: 1px 1px 0px #c9184a !important;
+    background: #ffc8dd !important;
 }
-[data-testid="stSidebar"] .stRadio label:hover {
-    background: #ffb6c1;
+
+/* ── MOBILE ── */
+@media (max-width: 768px) {
+    .block-container { padding: 0.5rem 0.6rem !important; }
+    .pixel-header h1 { font-size: 10px !important; }
+    .metric-pixel .value { font-size: 11px !important; }
+    .stButton > button { font-size: 6px !important; padding: 6px 2px !important; }
 }
 
 .pixel-window {
@@ -460,56 +480,18 @@ def pixel_window(title, content_html):
         <div class="pixel-body">{content_html}</div>
     </div>"""
 
-# ── SESSION STATE INIT — Dashboard fix ──────────────────────────
+# ── SESSION STATE INIT ───────────────────────────────────────────
 if "page" not in st.session_state:
     st.session_state["page"] = "DASHBOARD"
-# ── SIDEBAR ──────────────────────────────────────────────────────
-with st.sidebar:
-    st.markdown('<p style="font-family:\'Press Start 2P\',monospace;font-size:9px;color:#590d22;text-align:center;line-height:2">SMART EXPENSE<br>ANALYZER</p>', unsafe_allow_html=True)
-    st.markdown("---")
+if "sel_year" not in st.session_state:
+    st.session_state["sel_year"]  = datetime.date.today().year
+if "sel_month" not in st.session_state:
+    st.session_state["sel_month"] = datetime.date.today().month
 
-    pages = ["DASHBOARD","LOG EXPENSE","SET BUDGET","ANALYTICS","AI INSIGHTS","PREDICTION"]
-    cur   = pages.index(st.session_state["page"]) if st.session_state["page"] in pages else 0
-    page  = st.radio("", pages, index=cur, label_visibility="collapsed",
-                     key="nav_radio")
-    st.session_state["page"] = page
-    st.markdown("---")
-
-    # ── MONTH SELECTOR ────────────────────────────────────────
-    all_expenses = load_expenses()
-    all_months   = get_all_months(all_expenses)
-    month_labels = [datetime.date(y, m, 1).strftime("%B %Y") for y, m in all_months]
-    sel_idx      = st.selectbox("SELECT MONTH", range(len(month_labels)),
-                                 format_func=lambda i: month_labels[i],
-                                 label_visibility="visible")
-    sel_year, sel_month = all_months[sel_idx]
-    st.session_state["sel_year"]  = sel_year
-    st.session_state["sel_month"] = sel_month
-
-    # ── PIXEL CALENDAR ────────────────────────────────────────
-    sel_expenses  = filter_exp(all_expenses, sel_year, sel_month)
-    expense_days  = set(datetime.date.fromisoformat(e["date"]).day for e in sel_expenses)
-    calendar_html = build_pixel_calendar(sel_year, sel_month, expense_days)
-    import streamlit.components.v1 as components
-    components.html(
-        f"""<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
-        {calendar_html}""",
-        height=260, scrolling=False
-    )
-
-    st.markdown("---")
-    budget = load_budget(sel_year, sel_month)
-    spent  = total(sel_expenses)
-    if budget:
-        pct = min(spent/budget, 1.0)
-        st.markdown('<p style="font-family:\'Press Start 2P\',monospace;font-size:7px;color:#590d22">BUDGET</p>', unsafe_allow_html=True)
-        st.progress(pct)
-        st.markdown(f'<p style="font-family:\'Press Start 2P\',monospace;font-size:7px;color:#590d22">RS{spent:.0f} / RS{budget:.0f}</p>', unsafe_allow_html=True)
-        status = "!! EXCEEDED !!" if pct>=1 else ("! WARNING !" if pct>=0.8 else "ON TRACK")
-        color  = "#c9184a" if pct>=1 else ("#b8860b" if pct>=0.8 else "#1a7a35")
-        st.markdown(f'<p style="font-family:\'Press Start 2P\',monospace;font-size:7px;color:{color}">{status}</p>', unsafe_allow_html=True)
-    st.markdown("---")
-    st.markdown(f'<p style="font-family:\'Press Start 2P\',monospace;font-size:6px;color:#590d22">{datetime.date.today().strftime("%d.%m.%Y")}</p>', unsafe_allow_html=True)
+# ── LOAD DATA FOR NAV ────────────────────────────────────────────
+all_expenses = load_expenses()
+all_months   = get_all_months(all_expenses)
+month_labels = [datetime.date(y, m, 1).strftime("%B %Y") for y, m in all_months]
 
 # ── HEADER ───────────────────────────────────────────────────────
 st.markdown("""
@@ -526,8 +508,57 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# ════════════════════════════════════════════════════════════
-# DASHBOARD
+# ── TOP NAVIGATION ───────────────────────────────────────────────
+pages = ["DASHBOARD","LOG EXPENSE","SET BUDGET","ANALYTICS","AI INSIGHTS","PREDICTION"]
+page_icons = ["HOME","LOG","BUDGET","CHART","AI","PREDICT"]
+
+# Month selector row
+col_m, col_d = st.columns([2, 3])
+with col_m:
+    sel_idx = st.selectbox("", range(len(month_labels)),
+                            format_func=lambda i: month_labels[i],
+                            key="month_sel", label_visibility="collapsed")
+    sel_year, sel_month = all_months[sel_idx]
+    st.session_state["sel_year"]  = sel_year
+    st.session_state["sel_month"] = sel_month
+
+with col_d:
+    sel_expenses = filter_exp(all_expenses, sel_year, sel_month)
+    budget_now   = load_budget(sel_year, sel_month)
+    spent_now    = total(sel_expenses)
+    if budget_now:
+        pct = min(spent_now/budget_now, 1.0)
+        status = "!! EXCEEDED" if pct>=1 else ("! WARNING" if pct>=0.8 else "ON TRACK")
+        color  = "#c9184a" if pct>=1 else ("#b8860b" if pct>=0.8 else "#1a7a35")
+        st.markdown(f'<div style="font-family:\'Press Start 2P\',monospace;font-size:7px;color:{color};padding:8px 0">{status} | RS{spent_now:.0f} / RS{budget_now:.0f}</div>', unsafe_allow_html=True)
+        st.progress(pct)
+
+# Nav buttons row
+st.markdown('<div style="margin:8px 0 4px">', unsafe_allow_html=True)
+nav_cols = st.columns(6)
+for i, (col, pg) in enumerate(zip(nav_cols, pages)):
+    with col:
+        is_active = st.session_state["page"] == pg
+        btn_style = "background:#c9184a;color:#fff0f3" if is_active else "background:#ff8fab;color:#590d22"
+        short = ["HOME","+ LOG","BUDGET","CHART","AI","PRED"][i]
+        if st.button(short, key=f"nav_{i}", use_container_width=True):
+            st.session_state["page"] = pg
+            st.rerun()
+st.markdown('</div>', unsafe_allow_html=True)
+
+# Calendar row (collapsible)
+with st.expander("CALENDAR", expanded=False):
+    expense_days  = set(datetime.date.fromisoformat(e["date"]).day for e in sel_expenses)
+    calendar_html = build_pixel_calendar(sel_year, sel_month, expense_days)
+    import streamlit.components.v1 as components
+    components.html(
+        f"""<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+        {calendar_html}""",
+        height=260, scrolling=False
+    )
+
+st.markdown("---")
+page = st.session_state["page"]
 # ════════════════════════════════════════════════════════════
 if page == "DASHBOARD":
     sy = st.session_state.get("sel_year",  datetime.date.today().year)
