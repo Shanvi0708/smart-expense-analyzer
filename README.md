@@ -1,4 +1,4 @@
-# 💰 Smart Expense Analyzer
+#  Smart Expense Analyzer
 ### AI-Powered Personal Finance Tracker | Python | CLI | Matplotlib
 
 ![Python](https://img.shields.io/badge/Python-3.13-blue?style=for-the-badge&logo=python)
@@ -8,7 +8,7 @@
 
 ---
 
-## 🚀 About The Project
+##  About The Project
 
 An **AI-inspired Personal Finance Analyzer** built with Python that helps users track expenses, analyze spending behavior, get intelligent budget alerts, and predict future spending trends — all from the terminal.
 
@@ -16,26 +16,26 @@ An **AI-inspired Personal Finance Analyzer** built with Python that helps users 
 
 ---
 
-## ✨ Features
+## Features
 
 | Feature | Description |
 |--------|-------------|
-| 📝 **Expense Logger** | Auto date capture, category selection, mood tagging |
-| 💼 **Budget Intelligence** | 80% warning & 100% exceeded alerts |
-| 📊 **Category Analytics** | Pie chart + Bar chart visualization |
-| 🤖 **AI Insight Report** | Spending behavior analysis & smart tips |
-| 📈 **Future Prediction** | Predicts monthly spending from 7-day average |
-| 📋 **Expense Log Viewer** | Clean tabular view with budget progress bar |
+|  **Expense Logger** | Auto date capture, category selection, mood tagging |
+|  **Budget Intelligence** | 80% warning & 100% exceeded alerts |
+|  **Category Analytics** | Pie chart + Bar chart visualization |
+|  **AI Insight Report** | Spending behavior analysis & smart tips |
+|  **Future Prediction** | Predicts monthly spending from 7-day average |
+|  **Expense Log Viewer** | Clean tabular view with budget progress bar |
 
 ---
 
-## 🧠 AI Insight Report Example
+##  AI Insight Report Example
 
 ```
-🔎 AI Insight Report:
+ AI Insight Report:
 
 • 48% of your expenses are on Food.
-• Impulsive spending is 35% ⚠️ Consider mindful spending!
+• Impulsive spending is 35%  Consider mindful spending!
 • You are likely to exceed your budget in ~5 days!
 • Your average daily expense is ₹320.
 • Great investment habit! Keep allocating towards growth.
@@ -43,7 +43,7 @@ An **AI-inspired Personal Finance Analyzer** built with Python that helps users 
 
 ---
 
-## 📈 Spending Prediction Logic
+## Spending Prediction Logic
 
 ```python
 Daily Average  = Last 7 days total / 7
@@ -52,7 +52,7 @@ Predicted Monthly Expense = Daily Average × 30
 
 ---
 
-## 🛠️ Tech Stack
+##  Tech Stack
 
 - **Language:** Python 3.13
 - **Data Storage:** CSV
@@ -61,7 +61,7 @@ Predicted Monthly Expense = Daily Average × 30
 
 ---
 
-## ⚙️ Installation & Setup
+##  Installation & Setup
 
 ```bash
 # 1. Clone the repository
@@ -86,7 +86,7 @@ python finance_analyzer.py
 
 ---
 
-## 📸 Program Preview
+##  Program Preview
 
 ```
 ════════════════════════════════════════════════════════════
@@ -119,7 +119,7 @@ smart-expense-analyzer/
 
 ---
 
-## 💡 What I Learned
+##  What I Learned
 
 - Data handling with CSV in Python
 - Analytics logic — category-wise breakdown, mood analysis
