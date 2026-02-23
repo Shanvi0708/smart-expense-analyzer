@@ -296,64 +296,119 @@ def total(exp):
     return sum(float(e["amount"]) for e in exp)
 
 def build_pixel_calendar(year, month, expense_dates):
-    """Build a cute pixel HTML calendar with expense dates encircled"""
+    """Build a clean pixel HTML calendar with properly aligned dates"""
     import calendar
     cal = calendar.monthcalendar(year, month)
     month_name = datetime.date(year, month, 1).strftime("%b %Y").upper()
-    days_header = ["MO","TU","WE","TH","FR","SA","SU"]
+    days_header = ["M","T","W","T","F","S","S"]
+
+    # Cell base style
+    cell = "width:26px;height:26px;text-align:center;vertical-align:middle;padding:0;"
 
     html = f"""
     <div style="
         background:#fff0f3;
         border:3px solid #c9184a;
         box-shadow:3px 3px 0px #c9184a;
-        padding:8px;
+        padding:0;
         font-family:'Press Start 2P',monospace;
-        font-size:7px;
         color:#590d22;
-        margin-top:8px;
+        margin-top:10px;
+        overflow:hidden;
     ">
+        <!-- Title bar -->
         <div style="
             background:#ff8fab;
-            border-bottom:2px solid #c9184a;
-            padding:4px 6px;
+            border-bottom:3px solid #c9184a;
+            padding:6px 4px;
             text-align:center;
             font-size:7px;
-            margin:-8px -8px 6px -8px;
             color:#590d22;
+            letter-spacing:1px;
         ">{month_name}</div>
-        <table style="width:100%;border-collapse:collapse;table-layout:fixed">
-            <tr>{"".join(f'<th style="text-align:center;padding:2px;font-size:6px;color:#c9184a">{d}</th>' for d in days_header)}</tr>
+
+        <!-- Calendar grid -->
+        <div style="padding:6px 4px 4px 4px;">
+            <table style="width:100%;border-collapse:separate;border-spacing:1px;table-layout:fixed;">
+                <!-- Day headers -->
+                <tr>
     """
+
+    for i, d in enumerate(days_header):
+        color = "#c9184a" if i >= 5 else "#590d22"
+        html += f'<td style="{cell}font-size:6px;color:{color};font-weight:bold;padding-bottom:3px;">{d}</td>'
+    html += "</tr>"
+
     for week in cal:
         html += "<tr>"
-        for day in week:
+        for i, day in enumerate(week):
+            is_weekend = (i >= 5)
             if day == 0:
-                html += '<td style="padding:2px"></td>'
+                html += f'<td style="{cell}"></td>'
             else:
                 is_today = (datetime.date.today() == datetime.date(year, month, day))
                 has_exp  = day in expense_dates
 
                 if has_exp and is_today:
-                    # today + has expense — bold circle with dot
-                    style = "background:#c9184a;color:#fff0f3;border-radius:50%;width:18px;height:18px;line-height:18px;text-align:center;margin:auto;font-size:6px;display:block;border:2px solid #590d22"
+                    bg     = "#c9184a"
+                    color  = "#fff0f3"
+                    border = "2px solid #590d22"
+                    radius = "50%"
                 elif has_exp:
-                    # has expense — pink circle
-                    style = "background:#ff8fab;color:#590d22;border-radius:50%;width:18px;height:18px;line-height:18px;text-align:center;margin:auto;font-size:6px;display:block;border:2px solid #c9184a"
+                    bg     = "#ff8fab"
+                    color  = "#590d22"
+                    border = "2px solid #c9184a"
+                    radius = "50%"
                 elif is_today:
-                    # today only — outline circle
-                    style = "background:#ffc8dd;color:#590d22;border-radius:50%;width:18px;height:18px;line-height:18px;text-align:center;margin:auto;font-size:6px;display:block;border:2px dashed #c9184a"
+                    bg     = "#ffc8dd"
+                    color  = "#590d22"
+                    border = "2px dashed #c9184a"
+                    radius = "50%"
                 else:
-                    style = "text-align:center;font-size:6px;padding:2px;display:block;width:18px;height:18px;line-height:18px;margin:auto"
+                    bg     = "transparent"
+                    color  = "#c9184a" if is_weekend else "#590d22"
+                    border = "none"
+                    radius = "0%"
 
-                html += f'<td style="padding:1px"><span style="{style}">{day}</span></td>'
+                html += f"""<td style="{cell}">
+                    <div style="
+                        width:22px;height:22px;
+                        line-height:22px;
+                        text-align:center;
+                        margin:auto;
+                        font-size:7px;
+                        background:{bg};
+                        color:{color};
+                        border:{border};
+                        border-radius:{radius};
+                        box-sizing:border-box;
+                    ">{day}</div>
+                </td>"""
         html += "</tr>"
 
     html += """
-        </table>
-        <div style="margin-top:6px;font-size:5px;color:#c9184a;line-height:1.8">
-            <span style="background:#ff8fab;border-radius:50%;padding:1px 4px;border:1px solid #c9184a">8</span> expense day &nbsp;
-            <span style="background:#ffc8dd;border-radius:50%;padding:1px 4px;border:1px dashed #c9184a">8</span> today
+            </table>
+        </div>
+
+        <!-- Legend -->
+        <div style="
+            background:#ffc8dd;
+            border-top:2px solid #c9184a;
+            padding:4px 6px;
+            display:flex;
+            gap:8px;
+            align-items:center;
+            font-size:5px;
+            color:#590d22;
+        ">
+            <div style="display:flex;align-items:center;gap:3px;">
+                <div style="width:10px;height:10px;background:#ff8fab;border:1px solid #c9184a;border-radius:50%;flex-shrink:0"></div>
+                <span>expense</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:3px;">
+                <div style="width:10px;height:10px;background:#ffc8dd;border:1px dashed #c9184a;border-radius:50%;flex-shrink:0"></div>
+                <span>today</span>
+            </div>
         </div>
     </div>
     """
@@ -402,7 +457,13 @@ with st.sidebar:
     sel_expenses   = filter_exp(all_expenses, sel_year, sel_month)
     expense_days   = set(datetime.date.fromisoformat(e["date"]).day for e in sel_expenses)
     calendar_html  = build_pixel_calendar(sel_year, sel_month, expense_days)
-    st.markdown(calendar_html, unsafe_allow_html=True)
+    import streamlit.components.v1 as components
+    components.html(
+        f"""<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+        {calendar_html}""",
+        height=260,
+        scrolling=False
+    )
 
     st.markdown("---")
     budget = load_budget()
