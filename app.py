@@ -13,6 +13,20 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+# Force sidebar always open — hide collapse arrow button
+st.markdown("""
+<style>
+[data-testid="collapsedControl"] { display: none !important; }
+button[kind="header"] { display: none !important; }
+.st-emotion-cache-dvne4q { display: none !important; }
+[aria-label="Close sidebar"] { display: none !important; }
+[aria-label="Collapse sidebar"] { display: none !important; }
+svg[data-testid="stIconMaterial"] { display: none !important; }
+section[data-testid="stSidebar"] { min-width: 260px !important; max-width: 280px !important; transform: none !important; }
+section[data-testid="stSidebar"] > div:first-child { padding-top: 1rem !important; }
+</style>
+""", unsafe_allow_html=True)
+
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323:wght@400&display=swap');
@@ -243,11 +257,10 @@ html, body, [class*="css"] {
 
 # ── CONFIG ───────────────────────────────────────────────────────
 DATA_FILE   = "expenses.csv"
-BUDGET_FILE = "budget.txt"
 FIELDNAMES  = ["date", "category", "amount", "mood"]
 CATEGORIES  = ["Food","Transport","Shopping","Entertainment",
                "Health","Education","Utilities","Investment","Other"]
-MOODS       = ["Necessary","Impulsive","Investment"]
+MOODS       = ["Necessary","Impulsive","Investment","Leisure"]
 PALETTE     = ["#ff8fab","#c9184a","#ffb3c6","#ff4d6d","#ff758f",
                "#ff85a1","#fbb1bd","#ff5c8a","#a4133c","#800f2f"]
 
@@ -264,14 +277,30 @@ def save_expense(row):
         if not exists: w.writeheader()
         w.writerow(row)
 
-def load_budget():
-    if os.path.exists(BUDGET_FILE):
-        try: return float(open(BUDGET_FILE).read().strip())
-        except: return None
+def budget_file_for(year, month):
+    return f"budget_{year}_{month:02d}.txt"
+
+def load_budget(year=None, month=None):
+    if year is None:
+        year  = datetime.date.today().year
+        month = datetime.date.today().month
+    path = budget_file_for(year, month)
+    if os.path.exists(path):
+        try: return float(open(path).read().strip())
+        except: pass
+    # fallback: try previous month
+    prev = datetime.date(year, month, 1) - datetime.timedelta(days=1)
+    prev_path = budget_file_for(prev.year, prev.month)
+    if os.path.exists(prev_path):
+        try: return float(open(prev_path).read().strip())
+        except: pass
     return None
 
-def save_budget(v):
-    open(BUDGET_FILE, "w").write(str(v))
+def save_budget(v, year=None, month=None):
+    if year is None:
+        year  = datetime.date.today().year
+        month = datetime.date.today().month
+    open(budget_file_for(year, month), "w").write(str(v))
 
 def get_all_months(expenses):
     """Return sorted list of (year, month) tuples that have expenses"""
@@ -431,14 +460,19 @@ def pixel_window(title, content_html):
         <div class="pixel-body">{content_html}</div>
     </div>"""
 
+# ── SESSION STATE INIT — Dashboard fix ──────────────────────────
+if "page" not in st.session_state:
+    st.session_state["page"] = "DASHBOARD"
 # ── SIDEBAR ──────────────────────────────────────────────────────
 with st.sidebar:
     st.markdown('<p style="font-family:\'Press Start 2P\',monospace;font-size:9px;color:#590d22;text-align:center;line-height:2">SMART EXPENSE<br>ANALYZER</p>', unsafe_allow_html=True)
     st.markdown("---")
-    page = st.radio("", [
-        "DASHBOARD","LOG EXPENSE","SET BUDGET",
-        "ANALYTICS","AI INSIGHTS","PREDICTION",
-    ], label_visibility="collapsed")
+
+    pages = ["DASHBOARD","LOG EXPENSE","SET BUDGET","ANALYTICS","AI INSIGHTS","PREDICTION"]
+    cur   = pages.index(st.session_state["page"]) if st.session_state["page"] in pages else 0
+    page  = st.radio("", pages, index=cur, label_visibility="collapsed",
+                     key="nav_radio")
+    st.session_state["page"] = page
     st.markdown("---")
 
     # ── MONTH SELECTOR ────────────────────────────────────────
@@ -449,24 +483,22 @@ with st.sidebar:
                                  format_func=lambda i: month_labels[i],
                                  label_visibility="visible")
     sel_year, sel_month = all_months[sel_idx]
-    # Store selected month in session state so pages can use it
     st.session_state["sel_year"]  = sel_year
     st.session_state["sel_month"] = sel_month
 
     # ── PIXEL CALENDAR ────────────────────────────────────────
-    sel_expenses   = filter_exp(all_expenses, sel_year, sel_month)
-    expense_days   = set(datetime.date.fromisoformat(e["date"]).day for e in sel_expenses)
-    calendar_html  = build_pixel_calendar(sel_year, sel_month, expense_days)
+    sel_expenses  = filter_exp(all_expenses, sel_year, sel_month)
+    expense_days  = set(datetime.date.fromisoformat(e["date"]).day for e in sel_expenses)
+    calendar_html = build_pixel_calendar(sel_year, sel_month, expense_days)
     import streamlit.components.v1 as components
     components.html(
         f"""<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
         {calendar_html}""",
-        height=260,
-        scrolling=False
+        height=260, scrolling=False
     )
 
     st.markdown("---")
-    budget = load_budget()
+    budget = load_budget(sel_year, sel_month)
     spent  = total(sel_expenses)
     if budget:
         pct = min(spent/budget, 1.0)
@@ -501,7 +533,7 @@ if page == "DASHBOARD":
     sy = st.session_state.get("sel_year",  datetime.date.today().year)
     sm = st.session_state.get("sel_month", datetime.date.today().month)
     me     = filter_exp(load_expenses(), sy, sm)
-    budget = load_budget()
+    budget = load_budget(sy, sm)
     spent  = total(me)
     import calendar as cal_mod
     days_in = cal_mod.monthrange(sy, sm)[1]
@@ -559,12 +591,14 @@ elif page == "LOG EXPENSE":
     with col2:
         mood = st.selectbox("MOOD TAG", MOODS)
         st.markdown(pixel_window("mood_guide.txt",
-            "<p style='font-family:VT323,monospace;font-size:18px;color:#590d22;line-height:1.8'>NECESSARY  = bills, essentials<br>IMPULSIVE  = unplanned buying<br>INVESTMENT = growth, learning</p>"), unsafe_allow_html=True)
+            "<p style='font-family:VT323,monospace;font-size:18px;color:#590d22;line-height:1.8'>NECESSARY  = bills, essentials<br>IMPULSIVE  = unplanned buying<br>INVESTMENT = growth, learning<br>LEISURE    = movies, outings, fun</p>"), unsafe_allow_html=True)
 
     if st.button("[ SAVE EXPENSE ]"):
-        save_expense({"date": datetime.date.today().isoformat(),
+        today_date = datetime.date.today()
+        save_expense({"date": today_date.isoformat(),
                       "category": category, "amount": amount, "mood": mood})
-        budget = load_budget(); me2 = month_exp(); spent2 = total(me2)
+        budget = load_budget(today_date.year, today_date.month)
+        me2    = month_exp(); spent2 = total(me2)
         st.markdown(f'<div class="pixel-success">SAVED  |  {category}  |  RS {amount:.2f}  |  {mood}</div>', unsafe_allow_html=True)
         if budget:
             pct = (spent2/budget)*100
@@ -579,15 +613,19 @@ elif page == "LOG EXPENSE":
 # SET BUDGET
 # ════════════════════════════════════════════════════════════
 elif page == "SET BUDGET":
-    st.markdown('<span class="sec-title">BUDGET SETTINGS</span>', unsafe_allow_html=True)
-    budget = load_budget()
+    sy = st.session_state.get("sel_year",  datetime.date.today().year)
+    sm = st.session_state.get("sel_month", datetime.date.today().month)
+    st.markdown(f'<span class="sec-title">BUDGET : {datetime.date(sy,sm,1).strftime("%B %Y").upper()}</span>', unsafe_allow_html=True)
+    budget = load_budget(sy, sm)
     if budget:
         st.markdown(f'<div class="insight-row">CURRENT BUDGET : RS {budget:.2f}</div>', unsafe_allow_html=True)
-    new_b = st.number_input("SET MONTHLY BUDGET (RS)", min_value=100.0, step=500.0,
+    else:
+        st.markdown('<div class="insight-row">NO BUDGET SET FOR THIS MONTH</div>', unsafe_allow_html=True)
+    new_b = st.number_input("SET BUDGET FOR THIS MONTH (RS)", min_value=100.0, step=500.0,
                              format="%.2f", value=float(budget) if budget else 5000.0)
     if st.button("[ SAVE BUDGET ]"):
-        save_budget(new_b)
-        st.markdown(f'<div class="pixel-success">BUDGET SET TO RS {new_b:.2f}</div>', unsafe_allow_html=True)
+        save_budget(new_b, sy, sm)
+        st.markdown(f'<div class="pixel-success">BUDGET SET TO RS {new_b:.2f} FOR {datetime.date(sy,sm,1).strftime("%B %Y").upper()}</div>', unsafe_allow_html=True)
     st.markdown('<span class="sec-title">ALERT SYSTEM</span>', unsafe_allow_html=True)
     st.markdown('<div class="pixel-warn">! 80% WARNING -- slow down spending</div>', unsafe_allow_html=True)
     st.markdown('<div class="pixel-danger">!! 100% EXCEEDED -- budget is gone</div>', unsafe_allow_html=True)
@@ -639,10 +677,10 @@ elif page == "ANALYTICS":
             plt.tight_layout(); st.pyplot(fig2)
 
         st.markdown('<span class="sec-title">MOOD BREAKDOWN</span>', unsafe_allow_html=True)
-        m1,m2,m3 = st.columns(3)
-        for col, mood, color in zip([m1,m2,m3],
-                                     ["Necessary","Impulsive","Investment"],
-                                     ["#b8f0c8","#ffb3b3","#d4b8f0"]):
+        m1,m2,m3,m4 = st.columns(4)
+        for col, mood, color in zip([m1,m2,m3,m4],
+                                     ["Necessary","Impulsive","Investment","Leisure"],
+                                     ["#b8f0c8","#ffb3b3","#d4b8f0","#ffd6a5"]):
             amt = mood_totals.get(mood,0); pct = (amt/grand*100) if grand else 0
             with col:
                 st.markdown(f'<div class="metric-pixel" style="background:{color}"><div class="label">{mood.upper()}</div><div class="value">RS {amt:.0f}</div><div style="font-family:VT323,monospace;font-size:18px;color:#590d22">{pct:.1f}%</div></div>', unsafe_allow_html=True)
@@ -679,11 +717,14 @@ elif page == "AI INSIGHTS":
             days_elapsed = days_in_month
         daily_avg    = grand / max(days_elapsed, 1)
         days_left    = max(days_in_month - days_elapsed, 0)
-        budget       = load_budget()
+        budget       = load_budget(sy, sm)
+
+        lei_pct      = mood_totals.get("Leisure",0)/grand*100
 
         insights = [
             f"{top_pct:.1f}% of expenses are on {top_cat.upper()}",
             f"IMPULSIVE spending : {imp_pct:.1f}%" + ("  >> too high!" if imp_pct>30 else "  >> ok"),
+            f"LEISURE spending : {lei_pct:.1f}%" + ("  >> enjoy but watch out!" if lei_pct>20 else "  >> balanced"),
             f"NECESSARY : {nec_pct:.1f}%   INVESTMENT : {inv_pct:.1f}%",
             f"DAILY AVERAGE : RS {daily_avg:.2f}",
             f"DAYS GONE : {days_elapsed}   DAYS LEFT : {days_left}",
@@ -709,43 +750,75 @@ elif page == "AI INSIGHTS":
 # PREDICTION
 # ════════════════════════════════════════════════════════════
 elif page == "PREDICTION":
-    st.markdown('<span class="sec-title">SPENDING PREDICTION</span>', unsafe_allow_html=True)
+    sy = st.session_state.get("sel_year",  datetime.date.today().year)
+    sm = st.session_state.get("sel_month", datetime.date.today().month)
+    st.markdown(f'<span class="sec-title">PREDICTION : {datetime.date(sy,sm,1).strftime("%B %Y").upper()}</span>', unsafe_allow_html=True)
+
     expenses = load_expenses()
     today    = datetime.date.today()
-    last7    = [e for e in expenses if (today-datetime.date.fromisoformat(e["date"])).days < 7]
+
+    # Use selected month data if past month, else last 7 days
+    import calendar as cal_mod
+    if sy == today.year and sm == today.month:
+        # Current month — use last 7 days for prediction
+        last7 = [e for e in expenses if (today - datetime.date.fromisoformat(e["date"])).days < 7]
+        mode  = "7-DAY"
+    else:
+        # Past month — use full month data
+        last7 = filter_exp(expenses, sy, sm)
+        mode  = "FULL MONTH"
+
+    budget = load_budget(sy, sm)
 
     if not last7:
-        st.markdown(pixel_window("ERROR.txt","<p style='font-family:VT323,monospace;font-size:20px;color:#590d22'>Need 7 days of data!</p>"), unsafe_allow_html=True)
+        st.markdown(pixel_window("ERROR.txt","<p style='font-family:VT323,monospace;font-size:20px;color:#590d22'>No data available for prediction!</p>"), unsafe_allow_html=True)
     else:
-        total7    = total(last7)
-        daily_avg = total7/7
-        predicted = daily_avg*30
-        budget    = load_budget()
+        days_in_month = cal_mod.monthrange(sy, sm)[1]
+        if mode == "7-DAY":
+            total7    = total(last7)
+            daily_avg = total7 / 7
+            predicted = daily_avg * days_in_month
+            lbl0, val0 = "7-DAY TOTAL", f"RS {total7:.0f}"
+        else:
+            total7    = total(last7)
+            daily_avg = total7 / days_in_month
+            predicted = total7
+            lbl0, val0 = "MONTH TOTAL", f"RS {total7:.0f}"
 
         c1,c2,c3 = st.columns(3)
         for col, lbl, val in zip([c1,c2,c3],
-            ["7-DAY TOTAL","DAILY AVG","PREDICTED"],
-            [f"RS {total7:.0f}", f"RS {daily_avg:.0f}", f"RS {predicted:.0f}"]):
+            [lbl0, "DAILY AVG", "PREDICTED MONTH"],
+            [val0, f"RS {daily_avg:.0f}", f"RS {predicted:.0f}"]):
             with col:
                 st.markdown(f'<div class="metric-pixel"><div class="label">{lbl}</div><div class="value">{val}</div></div>', unsafe_allow_html=True)
 
         if budget:
-            diff = predicted-budget
+            diff = predicted - budget
             if diff > 0:
-                st.markdown(f'<div class="pixel-danger">!! RS {diff:.0f} OVER BUDGET -- reduce RS {diff/30:.0f}/day</div>', unsafe_allow_html=True)
+                st.markdown(f'<div class="pixel-danger">!! RS {diff:.0f} OVER BUDGET -- reduce RS {diff/days_in_month:.0f}/day</div>', unsafe_allow_html=True)
             else:
                 st.markdown(f'<div class="pixel-success">RS {abs(diff):.0f} UNDER BUDGET -- good job!</div>', unsafe_allow_html=True)
 
-        days = list(range(1,31)); projected = [daily_avg*d for d in days]
-        fig, ax = pink_chart(); fig.set_size_inches(10,5)
+        # Chart
+        days      = list(range(1, days_in_month+1))
+        projected = [daily_avg * d for d in days]
+        fig, ax   = pink_chart(); fig.set_size_inches(10,5)
         ax.plot(days, projected, color="#c9184a", linewidth=3, label="Projected", zorder=3)
         ax.fill_between(days, projected, alpha=0.15, color="#ff8fab")
-        ax.scatter(days[::5],[projected[i] for i in range(0,30,5)],color="#590d22",s=60,zorder=4,marker="s")
+        ax.scatter(days[::5], [projected[i] for i in range(0, len(days), 5)],
+                   color="#590d22", s=60, zorder=4, marker="s")
+
+        # Mark today
+        if sy == today.year and sm == today.month:
+            actual_today_spend = total(filter_exp(expenses, sy, sm))
+            ax.scatter([today.day], [actual_today_spend], color="#c9184a", s=120, zorder=5, marker="*", label="Actual today")
+
         if budget:
             ax.axhline(y=budget, color="#b8860b", linewidth=2, linestyle="--", label=f"Budget RS{budget:.0f}")
-            cross = budget/daily_avg if daily_avg else 31
-            if cross <= 30:
+            cross = budget/daily_avg if daily_avg else days_in_month+1
+            if cross <= days_in_month:
                 ax.axvline(x=cross, color="#ff4d6d", linewidth=1.5, linestyle=":", label=f"Exceeds Day {int(cross)}")
+
         ax.set_title("MONTHLY PROJECTION", color="#c9184a", fontsize=12, fontweight="bold")
         ax.set_xlabel("Day of Month", color="#590d22")
         ax.set_ylabel("Cumulative Spend (RS)", color="#590d22")
@@ -753,4 +826,4 @@ elif page == "PREDICTION":
         ax.grid(alpha=0.25, color="#ffb6c1")
         plt.tight_layout(); st.pyplot(fig)
 
-        st.markdown(f'<div class="insight-row">>> FORMULA : RS {daily_avg:.2f} x 30 = RS {predicted:.2f} predicted monthly</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="insight-row">>> FORMULA : RS {daily_avg:.2f}/day x {days_in_month} days = RS {predicted:.2f} predicted</div>', unsafe_allow_html=True)
